@@ -55,7 +55,8 @@ class Query {
       for (const [op, column, value] of this.filters) query.append(`${op}.${column}`, String(value));
       for (const [column, ascending] of this.ordering) query.append('order', `${column}.${ascending ? 'asc' : 'desc'}`);
       if (this.maxRows !== undefined) query.set('limit', String(this.maxRows));
-      const qs = query.size ? `?${query}` : '';
+      const queryString = query.toString();
+      const qs = queryString ? `?${queryString}` : '';
       const session = readSession();
       let result: any;
       if (this.action === 'select') {
