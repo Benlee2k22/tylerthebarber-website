@@ -14,6 +14,7 @@ type Booking = {
   source: string; is_paid: boolean; notes: string; service_id: string;
   services?: { name: string };
 };
+type Review = { id: string; customer_name: string; rating: number; body: string; is_published: boolean; created_at: string };
 type Slot = { start: string; end: string; label: string };
 
 const initialHours: Hours = {
@@ -254,6 +255,7 @@ function OwnerPage({ services }: { services: Service[] }) {
   const [error, setError] = useState(''); const [notice, setNotice] = useState('');
   const [week, setWeek] = useState(localToday());
   const [appointments, setAppointments] = useState<Booking[]>([]);
+  const [reviewRows, setReviewRows] = useState<Review[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]); const [notes, setNotes] = useState<any[]>([]);
   const [hours, setHours] = useState<Hours>(initialHours);
   const [walkIn, setWalkIn] = useState({ name: '', phone: '', serviceId: services[0]?.id || '' });
@@ -266,7 +268,7 @@ function OwnerPage({ services }: { services: Service[] }) {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: auth } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
-    return () => auth.subscription.unsubscribe();
+    return () => { auth.subscription.unsubscribe(); };
   }, []);
   useEffect(() => {
     if (!supabase || !session?.user?.id) { setAuthorized(false); return; }
