@@ -4,7 +4,7 @@ import {
   ChevronRight, Clock3, Crown, Instagram, Menu, Scissors, ShieldCheck,
   Sparkles, Star, UserRound, UsersRound, Wallet, X, Youtube,
 } from 'lucide-react';
-import { fallbackServices, hasBackend, money, Service, supabase } from './lib/supabase';
+import { fallbackServices, hasBackend, money, Service, supabase } from './lib/api';
 
 type Screen = 'home' | 'booking' | 'owner';
 type Hours = Record<string, { open: string | null; close: string | null }>;
@@ -232,7 +232,7 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
   }
 
   return <main className="subpage booking-page"><div className="subpage-head"><button className="back-link" onClick={onBack}><ChevronLeft size={18} /> Back to home</button><p className="eyebrow">Your next fresh cut</p><h1>Book an <em>appointment.</em></h1><p>Pick a service, choose a free time, and you’re all set.</p></div>
-    {!hasBackend ? <div className="setup-notice"><ShieldCheck size={20} /><div><strong>Online booking is being set up.</strong><p>This site needs its Supabase booking connection before appointments can be saved. Contact Tyler to book for now.</p></div></div> : success ? <div className="booking-success"><div className="success-icon"><Check size={30} /></div><p className="eyebrow">You're booked in</p><h2>See you soon, {form.name.split(' ')[0]}.</h2><p>{service?.name} · {formatDate(date)} at {timeLabel(selected)}</p><p>A confirmation is ready. {consent ? 'You opted in to a text reminder.' : 'You did not opt in to text reminders.'}</p><button className="button button-red" onClick={onBack}>Back to home</button></div> : <div className="booking-layout"><form className="booking-form" onSubmit={submit}>
+    {!hasBackend ? <div className="setup-notice"><ShieldCheck size={20} /><div><strong>Online booking is being set up.</strong><p>The VPS booking API needs to be connected before appointments can be saved. Contact Tyler to book for now.</p></div></div> : success ? <div className="booking-success"><div className="success-icon"><Check size={30} /></div><p className="eyebrow">You're booked in</p><h2>See you soon, {form.name.split(' ')[0]}.</h2><p>{service?.name} · {formatDate(date)} at {timeLabel(selected)}</p><p>A confirmation is ready. {consent ? 'You opted in to a text reminder.' : 'You did not opt in to text reminders.'}</p><button className="button button-red" onClick={onBack}>Back to home</button></div> : <div className="booking-layout"><form className="booking-form" onSubmit={submit}>
       <label className="field-label">Choose your service<select value={serviceId} onChange={e => setServiceId(e.target.value)}>{services.map(s => <option value={s.id} key={s.id}>{s.name} — {money(s.price)} · {s.duration_minutes} min</option>)}</select></label>
       <label className="field-label">Choose a day<input type="date" min={localToday()} value={date} onChange={e => setDate(e.target.value)} required /></label>
       <div className="field-label">Available times <div className="slot-grid">{available.length ? available.map(s => <button type="button" className={selected === s.start ? 'slot selected' : 'slot'} onClick={() => setSelected(s.start)} key={s.start}>{s.label}</button>) : <p className="muted">No free times on this day. Try another date.</p>}</div></div>
@@ -272,7 +272,7 @@ function OwnerPage({ services }: { services: Service[] }) {
     if (!supabase || !session?.user?.id) { setAuthorized(false); return; }
     supabase.from('profiles').select('role').eq('user_id', session.user.id).single().then(({ data }) => {
       if (data?.role === 'owner') { setAuthorized(true); setError(''); }
-      else { setAuthorized(false); setError('This login is not marked as the owner. Add your user to the profiles table in Supabase.'); }
+      else { setAuthorized(false); setError('This login is not marked as the owner. Sign in with an owner account in Vanta Core.'); }
     });
   }, [session]);
 
@@ -299,7 +299,7 @@ function OwnerPage({ services }: { services: Service[] }) {
 
   async function signIn(e: FormEvent) {
     e.preventDefault(); setError('');
-    if (!supabase) { setError('Add Supabase URL and anon key before signing in.'); return; }
+    if (!supabase) { setError('The VPS API is not configured. Set VITE_API_BASE_URL in the site environment.'); return; }
     const { error: signError } = await supabase.auth.signInWithPassword({ email, password });
     if (signError) setError(signError.message);
   }
@@ -355,7 +355,7 @@ function OwnerPage({ services }: { services: Service[] }) {
     if (e2) setError(e2.message); else { setNotice('Time blocked from online bookings.'); refresh(); }
   }
 
-  if (!hasBackend) return <main className="subpage owner-page"><div className="owner-gate"><div className="owner-lock"><ShieldCheck size={28} /></div><p className="eyebrow">Owner area</p><h1>Dashboard setup</h1><p>Connect Supabase to turn on secure bookings, the calendar and your weekly business figures.</p><a className="button button-red" href="#home">Back to website</a></div></main>;
+  if (!hasBackend) return <main className="subpage owner-page"><div className="owner-gate"><div className="owner-lock"><ShieldCheck size={28} /></div><p className="eyebrow">Owner area</p><h1>Dashboard setup</h1><p>Connect the VPS API to turn on secure bookings, the calendar and your weekly business figures.</p><a className="button button-red" href="#home">Back to website</a></div></main>;
   if (!session || !authorized) return <main className="subpage owner-page"><div className="owner-gate"><a className="back-link" href="#home"><ChevronLeft size={18} /> Back to website</a><div className="owner-lock"><ShieldCheck size={28} /></div><p className="eyebrow">Tyler’s private area</p><h1>Owner <em>login.</em></h1><p>Sign in to manage your appointments, calendar and weekly takings.</p><form className="owner-login" onSubmit={signIn}><label className="field-label">Email<input type="email" required value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" /></label><label className="field-label">Password<input type="password" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>{error && <p className="form-message">{error}</p>}<button className="button button-red" type="submit">Sign in <ArrowRight size={17} /></button></form></div></main>;
 
   const weekStart = new Date(`${week}T12:00:00`); weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));

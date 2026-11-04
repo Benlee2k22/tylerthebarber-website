@@ -6,21 +6,21 @@ A fresh React + Vite barber website with a public booking flow and an owner dash
 
 1. Install Node.js 20 or later.
 2. Run `npm install` and `npm run dev`.
-3. Add Supabase values to `.env.local` to enable booking and owner tools. The public marketing site works without them.
+3. Set `VITE_API_BASE_URL=https://api.vantaweb.co.uk` in `.env.local` to connect to the VPS API. The public marketing site works without it.
 
 ## Netlify
 
-Connect this repository to Netlify. The included `netlify.toml` uses `npm run build` and publishes `dist`, with a SPA rewrite so direct links work. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Netlify environment variables, then deploy.
+Connect this repository to Netlify. The included `netlify.toml` uses `npm run build` and publishes `dist`, with a SPA rewrite so direct links work. Set `VITE_API_BASE_URL=https://api.vantaweb.co.uk` in the Netlify build environment. The VPS API must allow `https://tylerthebarber.uk` and `https://www.tylerthebarber.uk` through CORS.
 
-## Supabase setup
+## VPS API and database
 
-1. Create a Supabase project and run `supabase/migrations/20261104180000_fresh_barber_schema.sql` in the SQL editor.
-2. Copy the project URL and anon key to `.env.local` and Netlify's build environment.
-3. Create the owner's user in Supabase Authentication, then run the owner promotion SQL shown at the bottom of the migration.
-4. To send SMS reminders, deploy `supabase/functions/send-sms-reminders` and set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` as Supabase function secrets. Schedule it hourly with Supabase Cron. Customers only receive reminders after opting in.
+1. The API changes are in the Vanta Core repository under `apps/api/src/barber.ts` and `db/migrations/010_barber.sql`.
+2. Apply migration `010_barber.sql` to the existing `vanta_core` PostgreSQL database as `vanta_app`.
+3. Deploy the API changes and restart `vanta-core-api` on the VPS. Existing Vanta Core owner accounts can sign in; no second login system is created.
+4. Set `VITE_API_BASE_URL=https://api.vantaweb.co.uk` in Netlify and redeploy this site.
 
-The Supabase anon key is intended for the browser and is protected by row-level security. Never put a service-role key or Twilio credentials in Vite/Netlify public variables.
+The browser receives only the public API URL and a short-lived owner JWT. PostgreSQL credentials and the JWT signing secret remain on the VPS. SMS reminders need Twilio credentials and a scheduled reminder worker on the VPS; those must be configured before text reminders can be sent.
 
 ## Owner tools
 
-Visit `/#owner` and sign in. Mark appointments complete to include them in weekly income/client totals. Walk-ins can be added from the owner dashboard and count toward the selected week. Expenses and notes are private to authenticated owners.
+Visit `/#owner` and sign in with the existing Vanta Core owner account. Mark appointments complete to include them in weekly income/client totals. Walk-ins can be added from the owner dashboard and count toward the selected week. Expenses and notes are private to authenticated owners.
