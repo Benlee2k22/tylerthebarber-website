@@ -5,10 +5,11 @@ export const hasBackend = Boolean(apiBase);
 
 export type Service = { id: string; name: string; price: number; duration_minutes: number; description: string; is_active: boolean };
 export const fallbackServices: Service[] = [
-  { id: 'kids', name: 'Kids Cut', price: 10, duration_minutes: 30, description: 'Fresh, tidy cuts for the young ones.', is_active: true },
-  { id: 'adult', name: 'Adult Haircut', price: 15, duration_minutes: 40, description: 'A clean cut, fade or taper.', is_active: true },
-  { id: 'combo', name: 'Haircut & Beard', price: 20, duration_minutes: 55, description: 'The full refresh: haircut and beard.', is_active: true },
-  { id: 'beard', name: 'Beard Trim', price: 5, duration_minutes: 20, description: 'Shape, line and tidy.', is_active: true },
+  { id: 'kids', name: 'Kids Cut', price: 10, duration_minutes: 60, description: 'Fresh, tidy cuts for the young ones.', is_active: true },
+  { id: 'adult', name: 'Adult Haircut', price: 15, duration_minutes: 60, description: 'A clean cut, fade or taper.', is_active: true },
+  { id: 'combo', name: 'Haircut & Beard', price: 20, duration_minutes: 60, description: 'The full refresh: haircut and beard.', is_active: true },
+  { id: 'beard', name: 'Beard Trim', price: 5, duration_minutes: 60, description: 'Shape, line and tidy.', is_active: true },
+  { id: 'oap', name: 'OAP Haircut', price: 10, duration_minutes: 60, description: 'A tidy, comfortable cut for older clients.', is_active: true },
 ];
 export const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(Number(value || 0));
 
@@ -72,8 +73,10 @@ class Query {
         result = await request(route, { method: 'POST', body: JSON.stringify(this.payload) });
       } else if (this.action === 'update') {
         const id = this.filters.find(([op, col]) => op === 'eq' && col === 'id')?.[2];
-        const singleton = this.table === 'barber_settings' ? 'settings' : this.table;
-        result = await request(`/barber/admin/${singleton}${id ? `/${encodeURIComponent(String(id))}` : ''}`, { method: 'PATCH', body: JSON.stringify(this.payload) });
+        const singleton = this.table === 'barber_settings';
+        const route = singleton ? '/barber/admin/settings' : `/barber/admin/${this.table}/${encodeURIComponent(String(id || ''))}`;
+        if (!singleton && !id) throw new Error('A record ID is required.');
+        result = await request(route, { method: 'PATCH', body: JSON.stringify(this.payload) });
       } else {
         const id = this.filters.find(([op, col]) => op === 'eq' && col === 'id')?.[2];
         if (!id) throw new Error('A record ID is required.');
