@@ -2,7 +2,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown, ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft,
   ChevronRight, Clock3, Crown, Instagram, Menu, Scissors, ShieldCheck,
-  Sparkles, Star, UserRound, UsersRound, Wallet, MessageCircle, X, Youtube,
+  Sparkles, Star, UserRound, UsersRound, Wallet, MessageCircle, X,
 } from 'lucide-react';
 import { fallbackServices, hasBackend, money, Service, supabase } from './lib/api';
 
@@ -159,9 +159,9 @@ function Home({ services, reviews, onBook }: { services: Service[]; reviews: any
     </section>
 
     <footer id="contact" className="footer">
-      <div className="footer-social"><a href="https://facebook.com/Tylerthebabrer" target="_blank" rel="noreferrer" aria-label="Facebook">f</a><a href="https://instagram.com/Tylerthebarber" target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={21} /></a><a href="https://tiktok.com/@Tylerthebarber" target="_blank" rel="noreferrer" aria-label="TikTok">♪</a></div>
+      <div className="footer-social"><a href="https://www.instagram.com/tylerthebarber26/" target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={21} /></a><a href="https://www.tiktok.com/@tyfades" target="_blank" rel="noreferrer" aria-label="TikTok">♪</a></div>
       <p>Tyler the Barber · Fresh cuts. Sharp style.</p>
-      <div className="footer-links"><a href="https://facebook.com/Tylerthebabrer" target="_blank" rel="noreferrer">Facebook</a><a href="https://instagram.com/Tylerthebarber" target="_blank" rel="noreferrer">Instagram</a><a href="https://tiktok.com/@Tylerthebarber" target="_blank" rel="noreferrer">TikTok</a><a href="#owner">Owner login</a></div>
+      <div className="footer-links"><a href="https://www.instagram.com/tylerthebarber26/" target="_blank" rel="noreferrer">Instagram</a><a href="https://www.tiktok.com/@tyfades" target="_blank" rel="noreferrer">TikTok</a><a href="#owner">Owner login</a></div>
       <span className="copyright">© {new Date().getFullYear()} Tyler the Barber</span>
     </footer>
   </main>;
