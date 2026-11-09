@@ -25,10 +25,11 @@ const initialHours: Hours = {
 };
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const photos = [
-  ['Clean fade', 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=900&q=85'],
-  ['Sharp detail', 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=900&q=85'],
-  ['Fresh finish', 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=900&q=85'],
-  ['The full look', 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=900&q=85'],
+  ['Soft taper finish', '/images/portfolio/tyler-cut-01.webp'],
+  ['Detail line fade', '/images/portfolio/tyler-cut-02.webp'],
+  ['Clean silver taper', '/images/portfolio/tyler-cut-03.webp'],
+  ['Curved line design', '/images/portfolio/tyler-cut-04.webp'],
+  ['Skin fade and beard', '/images/portfolio/tyler-cut-05.webp'],
 ];
 
 function formatDate(value: string) {
