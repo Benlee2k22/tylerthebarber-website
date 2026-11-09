@@ -1,3 +1,5 @@
+import { normalizeCalendarDates } from './dates';
+
 // Small compatibility layer for the site's existing query calls. All data is
 // served by the Vanta Core API on the VPS; PostgreSQL credentials stay server-side.
 const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '');
@@ -96,6 +98,7 @@ class Query {
         result = await request(`/barber/admin/${this.table}/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
       }
       let data = result.data ?? result.rows ?? result[ this.table ] ?? result;
+      if (['appointments', 'expenses', 'calendar_blocks'].includes(this.table)) data = normalizeCalendarDates(data);
       if (this.one && Array.isArray(data)) data = data[0] ?? null;
       return { data, error: null };
     } catch (error: any) { return { data: null, error: { message: error?.message || 'Request failed' } }; }

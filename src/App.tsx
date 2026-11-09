@@ -4,6 +4,7 @@ import {
   ChevronRight, Clock3, Crown, Instagram, MapPin, Menu, Scissors, ShieldCheck,
   Sparkles, Star, UserRound, UsersRound, Wallet, MessageCircle, X,
 } from 'lucide-react';
+import { formatDate } from './lib/dates';
 import { smsReminderHref } from './lib/reminders';
 import { fallbackServices, hasBackend, money, Service, supabase } from './lib/api';
 
@@ -35,9 +36,6 @@ const photos = [
   ['Skin fade and beard', '/images/portfolio/tyler-cut-05.webp'],
 ];
 
-function formatDate(value: string) {
-  return new Date(`${value}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-}
 function addMinutes(time: string, minutes: number) {
   const [h, m] = time.split(':').map(Number);
   const total = h * 60 + m + minutes;
