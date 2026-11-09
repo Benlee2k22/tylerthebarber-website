@@ -1,7 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown, ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft,
-  ChevronRight, Clock3, Crown, Instagram, Menu, Scissors, ShieldCheck,
+  ChevronRight, Clock3, Crown, Instagram, MapPin, Menu, Scissors, ShieldCheck,
   Sparkles, Star, UserRound, UsersRound, Wallet, MessageCircle, X,
 } from 'lucide-react';
 import { fallbackServices, hasBackend, money, Service, supabase } from './lib/api';
@@ -18,12 +18,14 @@ type Review = { id: string; customer_name: string; rating: number; body: string;
 type Slot = { start: string; end: string; label: string };
 
 const initialHours: Hours = {
-  '0': { open: null, close: null }, '1': { open: '09:00', close: '17:00' },
-  '2': { open: '09:00', close: '17:00' }, '3': { open: '09:00', close: '17:00' },
+  '0': { open: null, close: null }, '1': { open: null, close: null },
+  '2': { open: null, close: null }, '3': { open: null, close: null },
   '4': { open: '09:00', close: '17:00' }, '5': { open: '09:00', close: '17:00' },
   '6': { open: '09:00', close: '15:00' },
 };
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const shopAddress = '24 Argyle Parade, Heywood, OL10 3RY';
+const shopMapUrl = 'https://maps.google.com/?q=24+Argyle+Parade,+Heywood,+OL10+3RY';
 const photos = [
   ['Soft taper finish', '/images/portfolio/tyler-cut-01.webp'],
   ['Detail line fade', '/images/portfolio/tyler-cut-02.webp'],
@@ -51,9 +53,23 @@ function whatsappNumber(value: string) {
   if (/^447\d{9}$/.test(compact)) return compact;
   return null;
 }
-function localToday() {
-  const d = new Date();
+function localDateValue(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function localToday() { return localDateValue(new Date()); }
+function nextOpenDate() {
+  const now = new Date();
+  for (let offset = 0; offset < 7; offset++) {
+    const day = (now.getDay() + offset) % 7;
+    if (![4, 5, 6].includes(day)) continue;
+    if (offset === 0) {
+      const closeMinute = day === 6 ? 15 * 60 : 17 * 60;
+      if (now.getHours() * 60 + now.getMinutes() >= closeMinute) continue;
+    }
+    const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12);
+    return localDateValue(candidate);
+  }
+  return localToday();
 }
 
 export default function App() {
@@ -160,7 +176,7 @@ function Home({ services, reviews, onBook }: { services: Service[]; reviews: any
 
     <footer id="contact" className="footer">
       <div className="footer-social"><a href="https://www.instagram.com/tylerthebarber26/" target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={21} /></a><a href="https://www.tiktok.com/@tyfades" target="_blank" rel="noreferrer" aria-label="TikTok">♪</a></div>
-      <p>Tyler the Barber · Fresh cuts. Sharp style.</p>
+      <p>Tyler the Barber · Fresh cuts. Sharp style.<br /><a href={shopMapUrl} target="_blank" rel="noreferrer">{shopAddress}</a><br />Open Thursday, Friday and Saturday</p>
       <div className="footer-links"><a href="https://www.instagram.com/tylerthebarber26/" target="_blank" rel="noreferrer">Instagram</a><a href="https://www.tiktok.com/@tyfades" target="_blank" rel="noreferrer">TikTok</a><a href="#owner">Owner login</a></div>
       <span className="copyright">© {new Date().getFullYear()} Tyler the Barber</span>
     </footer>
@@ -183,7 +199,7 @@ function SectionTitle({ children }: { children: string }) { return <div classNam
 
 function BookingPage({ services, onBack }: { services: Service[]; onBack: () => void }) {
   const [serviceId, setServiceId] = useState(services[0]?.id || '');
-  const [date, setDate] = useState(localToday());
+  const [date, setDate] = useState(nextOpenDate());
   const [busy, setBusy] = useState<{ start_time: string; end_time: string }[]>([]);
   const [hours, setHours] = useState<Hours>(initialHours);
   const [reviewRows, setReviewRows] = useState<any[]>([]);
@@ -224,6 +240,7 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
     }
     return out;
   }, [date, hours, busy, service]);
+  const selectedDayOpen = Boolean(hours[String(new Date(`${date}T12:00:00`).getDay())]?.open);
 
   async function submit(e: FormEvent) {
     e.preventDefault(); setMessage('');
@@ -241,11 +258,12 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
     setSuccess(true);
   }
 
-  return <main className="subpage booking-page"><div className="subpage-head"><button className="back-link" onClick={onBack}><ChevronLeft size={18} /> Back to home</button><p className="eyebrow">Your next fresh cut</p><h1>Book an <em>appointment.</em></h1><p>Pick a service, choose a free time, and you’re all set.</p></div>
+  return <main className="subpage booking-page"><div className="subpage-head"><button className="back-link" onClick={onBack}><ChevronLeft size={18} /> Back to home</button><p className="eyebrow">Your next fresh cut</p><h1>Book an <em>appointment.</em></h1><p>Pick a service and time. Open Thursday, Friday and Saturday only.</p></div>
+    <div className="booking-info"><a className="booking-info-card" href={shopMapUrl} target="_blank" rel="noreferrer"><MapPin size={22} /><span><strong>Appointment address</strong><small>{shopAddress}</small><small>Tap for map directions</small></span><ArrowRight size={16} /></a><div className="booking-info-card"><Clock3 size={22} /><span><strong>Opening days</strong><small>Thursday, Friday and Saturday only</small></span></div></div>
     {!hasBackend ? <div className="setup-notice"><ShieldCheck size={20} /><div><strong>Online booking is being set up.</strong><p>The VPS booking API needs to be connected before appointments can be saved. Contact Tyler to book for now.</p></div></div> : success ? <div className="booking-success"><div className="success-icon"><Check size={30} /></div><p className="eyebrow">You're booked in</p><h2>See you soon, {form.name.split(' ')[0]}.</h2><p>{service?.name} · {formatDate(date)} at {timeLabel(selected)}</p><p>{whatsappConsent ? 'Tyler will send your WhatsApp reminder manually.' : 'Your booking is confirmed.'}</p><button className="button button-gold" onClick={onBack}>Back to home</button></div> : <div className="booking-layout"><form className="booking-form" onSubmit={submit}>
       <label className="field-label">Choose your service<select value={serviceId} onChange={e => setServiceId(e.target.value)}>{services.map(s => <option value={s.id} key={s.id}>{s.name} — {money(s.price)} · {s.duration_minutes} min</option>)}</select></label>
       <label className="field-label">Choose a day<input type="date" min={localToday()} value={date} onChange={e => setDate(e.target.value)} required /></label>
-      <div className="field-label">Available times <div className="slot-grid">{available.length ? available.map(s => <button type="button" className={selected === s.start ? 'slot selected' : 'slot'} onClick={() => setSelected(s.start)} key={s.start}>{s.label}</button>) : <p className="muted">No free times on this day. Try another date.</p>}</div></div>
+      <div className="field-label">Available times <div className="slot-grid">{available.length ? available.map(s => <button type="button" className={selected === s.start ? 'slot selected' : 'slot'} onClick={() => setSelected(s.start)} key={s.start}>{s.label}</button>) : <p className="muted">{selectedDayOpen ? 'No free times on this day. Try another date.' : 'Only open Thursday, Friday and Saturday. Please choose one of those days.'}</p>}</div></div>
       <div className="form-divider" />
       <label className="field-label">Your name<input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" autoComplete="name" /></label>
       <label className="field-label">Mobile number<input required type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="07..." autoComplete="tel" /></label>
@@ -387,7 +405,7 @@ function OwnerPage({ services }: { services: Service[] }) {
         <div className="owner-columns lower-columns"><div className="panel"><div className="panel-head"><div><h2>Outgoings</h2><p>Expenses you logged this week.</p></div></div>{expenses.length ? expenses.map(e => <div className="list-row" key={e.id}><div><strong>{e.description}</strong><small>{formatDate(e.expense_date)}</small></div><b>{money(Number(e.amount))}</b><button onClick={() => deleteRow('expenses', e.id)} aria-label="Delete outgoing"><X size={15} /></button></div>) : <div className="empty-state">No outgoings recorded this week.</div>}<form onSubmit={addExpense} className="inline-form"><input required placeholder="What did you pay for?" value={expenseForm.description} onChange={e => setExpenseForm({ ...expenseForm, description: e.target.value })} /><input required type="number" min="0.01" step="0.01" placeholder="£ amount" value={expenseForm.amount} onChange={e => setExpenseForm({ ...expenseForm, amount: e.target.value })} /><button className="button button-outline">Add</button></form></div>
         <div className="panel"><div className="panel-head"><div><h2>Business notes</h2><p>Quick reminders for later.</p></div></div>{notes.slice(0, 3).map(n => <div className="note-row" key={n.id}><div><strong>{n.title}</strong><p>{n.body}</p></div><button onClick={() => deleteRow('business_notes', n.id)} aria-label="Delete note"><X size={15} /></button></div>)}<form onSubmit={addNote} className="stack-form note-form"><input placeholder="Note title" value={noteForm.title} onChange={e => setNoteForm({ ...noteForm, title: e.target.value })} /><textarea required placeholder="Write a note…" value={noteForm.body} onChange={e => setNoteForm({ ...noteForm, body: e.target.value })} rows={3} /><button className="button button-outline">Save note</button></form></div></div>
       </>}
-      {tab === 'reminders' && <div className="panel reminders-panel"><div className="panel-head"><div><h2>WhatsApp reminders</h2><p>Upcoming confirmed bookings where the client opted in.</p></div><MessageCircle /></div><p className="reminder-explainer">Choose a reminder to open WhatsApp with the message ready. Check the details, then press Send in WhatsApp. Nothing is sent automatically.</p>{reminderRows.length ? <div className="reminder-list">{reminderRows.map(a => { const number = whatsappNumber(a.phone); const message = `Hi ${a.customer_name.split(' ')[0]}, just a reminder of your appointment with Tyler for ${a.services?.name || 'your service'} on ${formatDate(a.appointment_date)} at ${timeLabel(a.start_time)}. Message me if you need to rearrange.`; const href = number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : undefined; return <article className="reminder-card" key={a.id}><div className="reminder-details"><strong>{a.customer_name}</strong><span>{a.services?.name || 'Service'} · {formatDate(a.appointment_date)} at {timeLabel(a.start_time)}</span><small>{a.phone} · WhatsApp opted in</small></div>{href ? <a className="button reminder-send" href={href} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Open WhatsApp</a> : <span className="reminder-invalid">Enter a valid UK mobile to use WhatsApp</span>}</article>; })}</div> : <div className="empty-state">No upcoming confirmed bookings have opted in to WhatsApp reminders.</div>}</div>}
+      {tab === 'reminders' && <div className="panel reminders-panel"><div className="panel-head"><div><h2>WhatsApp reminders</h2><p>Upcoming confirmed bookings where the client opted in.</p></div><MessageCircle /></div><p className="reminder-explainer">Choose a reminder to open WhatsApp with the message ready. Check the details, then press Send in WhatsApp. Nothing is sent automatically.</p>{reminderRows.length ? <div className="reminder-list">{reminderRows.map(a => { const number = whatsappNumber(a.phone); const message = `Hi ${a.customer_name.split(' ')[0]}, just a reminder of your appointment with Tyler for ${a.services?.name || 'your service'} on ${formatDate(a.appointment_date)} at ${timeLabel(a.start_time)} at ${shopAddress}. Message me if you need to rearrange.`; const href = number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : undefined; return <article className="reminder-card" key={a.id}><div className="reminder-details"><strong>{a.customer_name}</strong><span>{a.services?.name || 'Service'} · {formatDate(a.appointment_date)} at {timeLabel(a.start_time)}</span><small>{a.phone} · WhatsApp opted in</small></div>{href ? <a className="button reminder-send" href={href} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Open WhatsApp</a> : <span className="reminder-invalid">Enter a valid UK mobile to use WhatsApp</span>}</article>; })}</div> : <div className="empty-state">No upcoming confirmed bookings have opted in to WhatsApp reminders.</div>}</div>}
       {tab === 'calendar' && <div className="owner-columns"><div className="panel"><div className="panel-head"><div><h2>Booked this week</h2><p>Manage bookings, cancellations and times.</p></div></div>{appointments.length ? appointments.map(a => <div className="list-row" key={a.id}><div><strong>{formatDate(a.appointment_date)} · {timeLabel(a.start_time)}</strong><small>{a.customer_name} · {a.services?.name || 'Service'}</small></div><button className="mini-action" onClick={() => { const d = prompt('New date (YYYY-MM-DD)', a.appointment_date); const t = d && prompt('New start time (HH:MM)', a.start_time.slice(0, 5)); if (!d || !t) return; const svc = services.find(s => s.id === a.service_id); updateBooking(a.id, { appointment_date: d, start_time: t, end_time: addMinutes(t, svc?.duration_minutes || 30) }); }}>Change</button><button onClick={() => updateBooking(a.id, { status: 'cancelled' })}>Cancel</button></div>) : <div className="empty-state">No appointments to show.</div>}</div><div className="panel"><div className="panel-head"><div><h2>Block a time</h2><p>Remove a slot for a walk-in or time off.</p></div></div><form onSubmit={blockTime} className="stack-form"><label className="field-label">Date<input type="date" min={localToday()} required value={blockForm.date} onChange={e => setBlockForm({ ...blockForm, date: e.target.value })} /></label><div className="two-fields"><label className="field-label">From<input type="time" required value={blockForm.start} onChange={e => setBlockForm({ ...blockForm, start: e.target.value })} /></label><label className="field-label">Until<input type="time" required value={blockForm.end} onChange={e => setBlockForm({ ...blockForm, end: e.target.value })} /></label></div><label className="field-label">Reason<input value={blockForm.reason} onChange={e => setBlockForm({ ...blockForm, reason: e.target.value })} /></label><button className="button button-gold">Block time <CalendarDays size={16} /></button></form>{blocks.map(b => <div className="list-row" key={b.id}><div><strong>{formatDate(b.block_date)} · {timeLabel(b.start_time)}</strong><small>{b.reason} · until {timeLabel(b.end_time)}</small></div><button onClick={() => deleteRow('calendar_blocks', b.id)} aria-label="Remove block"><X size={15} /></button></div>)}</div></div>}
       {tab === 'settings' && <div className="panel hours-panel"><div className="panel-head"><div><h2>Weekly opening hours</h2><p>Change the days and times customers can book.</p></div></div><form onSubmit={saveHours}>{dayNames.map((d, i) => <div className="hours-row" key={d}><strong>{d}</strong><label className="closed-toggle"><input type="checkbox" checked={Boolean(hours[String(i)]?.open)} onChange={e => setHours({ ...hours, [String(i)]: e.target.checked ? { open: '09:00', close: '17:00' } : { open: null, close: null } })} /> Open</label>{hours[String(i)]?.open ? <><input type="time" value={hours[String(i)].open || '09:00'} onChange={e => setHours({ ...hours, [String(i)]: { ...hours[String(i)], open: e.target.value } })} /><span>to</span><input type="time" value={hours[String(i)].close || '17:00'} onChange={e => setHours({ ...hours, [String(i)]: { ...hours[String(i)], close: e.target.value } })} /></> : <span className="muted closed-text">Closed</span>}</div>)}<button className="button button-gold">Save opening hours <Check size={17} /></button></form></div>}
       {tab === 'notes' && <div className="panel notes-panel"><div className="panel-head"><div><h2>All your notes</h2><p>Ideas, reminders and business admin in one place.</p></div></div><form onSubmit={addNote} className="stack-form note-form"><input placeholder="Note title" value={noteForm.title} onChange={e => setNoteForm({ ...noteForm, title: e.target.value })} /><textarea required placeholder="Write a note…" value={noteForm.body} onChange={e => setNoteForm({ ...noteForm, body: e.target.value })} rows={4} /><button className="button button-gold">Save note</button></form>{notes.map(n => <div className="note-row" key={n.id}><div><strong>{n.title}</strong><p>{n.body}</p><small>{new Date(n.created_at).toLocaleString('en-GB')}</small></div><button onClick={() => deleteRow('business_notes', n.id)}><X size={15} /></button></div>)}</div>}
