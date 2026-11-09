@@ -19,9 +19,9 @@ const listeners = new Set<(event: string, session: Session | null) => void>();
 function readSession(): Session | null { try { return JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null'); } catch { return null; } }
 function notify(event: string, session: Session | null) { listeners.forEach(listener => listener(event, session)); }
 
-async function request(path: string, options: RequestInit = {}) {
+async function request(path: string, options: RequestInit = {}, authenticated = true) {
   if (!apiBase) throw new Error('The barber API is not configured yet.');
-  const session = readSession();
+  const session = authenticated ? readSession() : null;
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}), ...options.headers },
@@ -32,6 +32,7 @@ async function request(path: string, options: RequestInit = {}) {
 }
 
 class Query {
+  private publicRequest = false;
   private action: 'select' | 'insert' | 'update' | 'delete' = 'select';
   private payload: any;
   private filters: Array<[string, string, unknown]> = [];
@@ -39,6 +40,7 @@ class Query {
   private maxRows?: number;
   private one = false;
   constructor(private table: string) {}
+  public() { this.publicRequest = true; return this; }
   select(_columns = '*') { if (this.action === 'select') this.action = 'select'; return this; }
   insert(value: any) { this.action = 'insert'; this.payload = value; return this; }
   update(value: any) { this.action = 'update'; this.payload = value; return this; }
@@ -58,19 +60,30 @@ class Query {
       if (this.maxRows !== undefined) query.set('limit', String(this.maxRows));
       const queryString = query.toString();
       const qs = queryString ? `?${queryString}` : '';
-      const session = readSession();
+      const session = this.publicRequest ? null : readSession();
       let result: any;
       if (this.action === 'select') {
         if (this.table === 'profiles') {
           const body = await request('/me');
           result = { role: body.user?.role, user_id: body.user?.id };
-        } else if (this.table === 'services' && !session) result = await request(`/barber/services${qs}`);
-        else if (this.table === 'reviews' && !session) result = await request(`/barber/reviews${qs}`);
-        else if (this.table === 'barber_settings' && !session) result = await request(`/barber/settings${qs}`);
+        } else if (this.table === 'services') result = await request(`/barber/services${qs}`, {}, false);
+        else if (this.table === 'reviews' && !session) result = await request(`/barber/reviews${qs}`, {}, false);
+        else if (this.table === 'barber_settings' && !session) result = await request(`/barber/settings${qs}`, {}, false);
         else result = await request(`/barber/admin/${this.table}${qs}`);
       } else if (this.action === 'insert') {
         const route = (!session && ['appointments', 'reviews'].includes(this.table)) ? `/barber/${this.table}` : `/barber/admin/${this.table}`;
-        result = await request(route, { method: 'POST', body: JSON.stringify(this.payload) });
+        if (route === '/barber/appointments') {
+          const { whatsapp_opt_in, ...legacyPayload } = this.payload;
+          const payload = whatsapp_opt_in ? this.payload : legacyPayload;
+          try {
+            result = await request(route, { method: 'POST', body: JSON.stringify(payload) }, false);
+          } catch (error) {
+            // Older VPS versions reject the optional field before inserting a booking.
+            // Retry only that validation rejection, never a network or save failure.
+            if (!whatsapp_opt_in || !(error instanceof Error) || error.message !== 'Check your booking details') throw error;
+            result = await request(route, { method: 'POST', body: JSON.stringify(legacyPayload) }, false);
+          }
+        } else result = await request(route, { method: 'POST', body: JSON.stringify(this.payload) }, !this.publicRequest);
       } else if (this.action === 'update') {
         const id = this.filters.find(([op, col]) => op === 'eq' && col === 'id')?.[2];
         const singleton = this.table === 'barber_settings';

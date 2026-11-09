@@ -88,7 +88,7 @@ export default function App() {
     window.addEventListener('hashchange', onHash);
     if (supabase) {
       supabase.from('services').select('id,name,price,duration_minutes,description,is_active').eq('is_active', true).order('sort_order').then(({ data }) => { if (data?.length) setServices(data as Service[]); });
-      supabase.from('reviews').select('id,customer_name,rating,body,created_at').eq('is_published', true).order('created_at', { ascending: false }).limit(3).then(({ data }) => { if (data) setReviews(data); });
+      supabase.from('reviews').public().select('id,customer_name,rating,body,created_at').eq('is_published', true).order('created_at', { ascending: false }).limit(3).then(({ data }) => { if (data) setReviews(data); });
     }
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -188,7 +188,7 @@ function ReviewForm() {
   async function submit(e: FormEvent) {
     e.preventDefault(); setMessage('');
     if (!supabase) { setMessage('Reviews will be available once the site is connected.'); return; }
-    const { error } = await supabase.from('reviews').insert({ customer_name: name.trim(), rating, body: body.trim(), is_published: false });
+    const { error } = await supabase.from('reviews').public().insert({ customer_name: name.trim(), rating, body: body.trim(), is_published: false });
     setMessage(error ? 'Could not send that review just now.' : 'Thanks — your review has been sent to Tyler for approval.');
     if (!error) { setName(''); setBody(''); setRating(5); }
   }
@@ -206,25 +206,41 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
   const [selected, setSelected] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [availabilityError, setAvailabilityError] = useState(false);
   const [success, setSuccess] = useState(false);
   const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '' });
   const service = services.find(s => s.id === serviceId) || services[0];
 
   useEffect(() => {
+    if (!services.some(s => s.id === serviceId)) setServiceId(services[0]?.id || '');
+  }, [services, serviceId]);
+
+  useEffect(() => {
+    let active = true;
     setSelected(''); setMessage('');
-    if (!supabase) return;
+    setAvailabilityLoading(true); setAvailabilityError(false); setBusy([]);
+    if (!supabase || !date) { setAvailabilityLoading(false); return; }
     Promise.all([
-      supabase.from('barber_settings').select('opening_hours').eq('id', true).single(),
+      supabase.from('barber_settings').public().select('opening_hours').eq('id', true).single(),
       supabase.rpc('get_busy_slots', { p_day: date }),
     ]).then(([settings, slots]) => {
+      if (!active) return;
+      if (settings.error || slots.error) {
+        setAvailabilityLoading(false); setAvailabilityError(true);
+        setMessage('Could not load available times. Please choose the date again or try later.');
+        return;
+      }
       if (settings.data?.opening_hours) setHours(settings.data.opening_hours as Hours);
       setBusy(slots.data || []);
+      setAvailabilityLoading(false);
     });
+    return () => { active = false; };
   }, [date]);
 
   const available = useMemo(() => {
-    if (!service) return [];
+    if (!service || availabilityLoading || availabilityError) return [];
     const day = new Date(`${date}T12:00:00`).getDay();
     const hoursToday = hours[String(day)];
     if (!hoursToday?.open || !hoursToday.close) return [];
@@ -239,7 +255,7 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
       out.push({ start, end, label: timeLabel(start) });
     }
     return out;
-  }, [date, hours, busy, service]);
+  }, [date, hours, busy, service, availabilityLoading, availabilityError]);
   const selectedDayOpen = Boolean(hours[String(new Date(`${date}T12:00:00`).getDay())]?.open);
 
   async function submit(e: FormEvent) {
@@ -248,28 +264,30 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
     setLoading(true);
     const slot = available.find(s => s.start === selected);
     if (!slot) { setLoading(false); setMessage('That time has just been taken. Please choose another.'); return; }
-    const { error } = await supabase.from('appointments').insert({
+    const { data, error } = await supabase.from('appointments').public().insert({
       customer_name: form.name.trim(), phone: form.phone.trim(), service_id: service.id,
       appointment_date: date, start_time: slot.start, end_time: slot.end,
       amount: service.price, status: 'confirmed', source: 'online', whatsapp_opt_in: whatsappConsent,
     });
     setLoading(false);
-    if (error) { setMessage(error.message.includes('duplicate') ? 'That time has just been booked. Pick another.' : 'Could not place the booking. Please try another time or contact Tyler.'); return; }
+    if (error) { setMessage(error.message.includes('duplicate') ? 'That time has just been booked. Pick another.' : error.message); return; }
+    if (whatsappConsent && !data?.whatsapp_opt_in) setMessage('Your booking is confirmed. Please contact Tyler if you would like a WhatsApp reminder.');
+    setWhatsappConsent(Boolean(data?.whatsapp_opt_in));
     setSuccess(true);
   }
 
   return <main className="subpage booking-page"><div className="subpage-head"><button className="back-link" onClick={onBack}><ChevronLeft size={18} /> Back to home</button><p className="eyebrow">Your next fresh cut</p><h1>Book an <em>appointment.</em></h1><p>Pick a service and time. Open Thursday, Friday and Saturday only.</p></div>
     <div className="booking-info"><a className="booking-info-card" href={shopMapUrl} target="_blank" rel="noreferrer"><MapPin size={22} /><span><strong>Appointment address</strong><small>{shopAddress}</small><small>Tap for map directions</small></span><ArrowRight size={16} /></a><div className="booking-info-card"><Clock3 size={22} /><span><strong>Opening days</strong><small>Thursday, Friday and Saturday only</small></span></div></div>
-    {!hasBackend ? <div className="setup-notice"><ShieldCheck size={20} /><div><strong>Online booking is being set up.</strong><p>The VPS booking API needs to be connected before appointments can be saved. Contact Tyler to book for now.</p></div></div> : success ? <div className="booking-success"><div className="success-icon"><Check size={30} /></div><p className="eyebrow">You're booked in</p><h2>See you soon, {form.name.split(' ')[0]}.</h2><p>{service?.name} · {formatDate(date)} at {timeLabel(selected)}</p><p>{whatsappConsent ? 'Tyler will send your WhatsApp reminder manually.' : 'Your booking is confirmed.'}</p><button className="button button-gold" onClick={onBack}>Back to home</button></div> : <div className="booking-layout"><form className="booking-form" onSubmit={submit}>
+    {!hasBackend ? <div className="setup-notice"><ShieldCheck size={20} /><div><strong>Online booking is being set up.</strong><p>The VPS booking API needs to be connected before appointments can be saved. Contact Tyler to book for now.</p></div></div> : success ? <div className="booking-success"><div className="success-icon"><Check size={30} /></div><p className="eyebrow">You're booked in</p><h2>See you soon, {form.name.split(' ')[0]}.</h2><p>{service?.name} · {formatDate(date)} at {timeLabel(selected)}</p><p>{message || (whatsappConsent ? 'Tyler will send your WhatsApp reminder manually.' : 'Your booking is confirmed.')}</p><button className="button button-gold" onClick={onBack}>Back to home</button></div> : <div className="booking-layout"><form className="booking-form" onSubmit={submit}>
       <label className="field-label">Choose your service<select value={serviceId} onChange={e => setServiceId(e.target.value)}>{services.map(s => <option value={s.id} key={s.id}>{s.name} — {money(s.price)} · {s.duration_minutes} min</option>)}</select></label>
       <label className="field-label">Choose a day<input type="date" min={localToday()} value={date} onChange={e => setDate(e.target.value)} required /></label>
-      <div className="field-label">Available times <div className="slot-grid">{available.length ? available.map(s => <button type="button" className={selected === s.start ? 'slot selected' : 'slot'} onClick={() => setSelected(s.start)} key={s.start}>{s.label}</button>) : <p className="muted">{selectedDayOpen ? 'No free times on this day. Try another date.' : 'Only open Thursday, Friday and Saturday. Please choose one of those days.'}</p>}</div></div>
+      <div className="field-label">Available times <div className="slot-grid">{availabilityLoading ? <p className="muted">Loading available times…</p> : availabilityError ? <p className="muted">Available times could not be loaded.</p> : available.length ? available.map(s => <button type="button" className={selected === s.start ? 'slot selected' : 'slot'} onClick={() => setSelected(s.start)} key={s.start}>{s.label}</button>) : <p className="muted">{selectedDayOpen ? 'No free times on this day. Try another date.' : 'Only open Thursday, Friday and Saturday. Please choose one of those days.'}</p>}</div></div>
       <div className="form-divider" />
-      <label className="field-label">Your name<input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" autoComplete="name" /></label>
-      <label className="field-label">Mobile number<input required type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="07..." autoComplete="tel" /></label>
+      <label className="field-label">Your name<input required minLength={2} maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" autoComplete="name" /></label>
+      <label className="field-label">Mobile number<input required type="tel" minLength={7} maxLength={40} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="07..." autoComplete="tel" /></label>
       <label className="consent"><input type="checkbox" checked={whatsappConsent} onChange={e => setWhatsappConsent(e.target.checked)} /><span>I'd like Tyler to send my appointment reminder on WhatsApp. This is optional and sent manually.</span></label>
       {message && <p className="form-message" role="alert">{message}</p>}
-      <button className="button button-gold submit-book" disabled={loading || !selected}>{loading ? 'Booking…' : <>Confirm booking <ArrowRight size={18} /></>}</button>
+      <button className="button button-gold submit-book" disabled={loading || availabilityLoading || availabilityError || !selected}>{loading ? 'Booking…' : <>Confirm booking <ArrowRight size={18} /></>}</button>
     </form><aside className="booking-summary"><CalendarDays size={28} /><h2>Your appointment</h2><p>{service?.name || 'Choose a service'}</p><div className="summary-line"><span>Price</span><strong>{money(service?.price || 0)}</strong></div><div className="summary-line"><span>Duration</span><strong>{service?.duration_minutes || 0} mins</strong></div><div className="summary-line"><span>Date</span><strong>{formatDate(date)}</strong></div><div className="summary-line"><span>Time</span><strong>{selected ? timeLabel(selected) : 'Choose a time'}</strong></div></aside></div>}
   </main>;
 }
