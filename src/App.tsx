@@ -191,7 +191,6 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [consent, setConsent] = useState(false);
   const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '' });
   const service = services.find(s => s.id === serviceId) || services[0];
@@ -235,7 +234,7 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
     const { error } = await supabase.from('appointments').insert({
       customer_name: form.name.trim(), phone: form.phone.trim(), service_id: service.id,
       appointment_date: date, start_time: slot.start, end_time: slot.end,
-      amount: service.price, status: 'confirmed', source: 'online', sms_opt_in: consent, whatsapp_opt_in: whatsappConsent,
+      amount: service.price, status: 'confirmed', source: 'online', whatsapp_opt_in: whatsappConsent,
     });
     setLoading(false);
     if (error) { setMessage(error.message.includes('duplicate') ? 'That time has just been booked. Pick another.' : 'Could not place the booking. Please try another time or contact Tyler.'); return; }
@@ -243,14 +242,13 @@ function BookingPage({ services, onBack }: { services: Service[]; onBack: () => 
   }
 
   return <main className="subpage booking-page"><div className="subpage-head"><button className="back-link" onClick={onBack}><ChevronLeft size={18} /> Back to home</button><p className="eyebrow">Your next fresh cut</p><h1>Book an <em>appointment.</em></h1><p>Pick a service, choose a free time, and you’re all set.</p></div>
-    {!hasBackend ? <div className="setup-notice"><ShieldCheck size={20} /><div><strong>Online booking is being set up.</strong><p>The VPS booking API needs to be connected before appointments can be saved. Contact Tyler to book for now.</p></div></div> : success ? <div className="booking-success"><div className="success-icon"><Check size={30} /></div><p className="eyebrow">You're booked in</p><h2>See you soon, {form.name.split(' ')[0]}.</h2><p>{service?.name} · {formatDate(date)} at {timeLabel(selected)}</p><p>A confirmation is ready. {consent ? 'You opted in to a text reminder.' : 'You did not opt in to text reminders.'} {whatsappConsent ? 'Tyler will send your WhatsApp reminder manually.' : ''}</p><button className="button button-red" onClick={onBack}>Back to home</button></div> : <div className="booking-layout"><form className="booking-form" onSubmit={submit}>
+    {!hasBackend ? <div className="setup-notice"><ShieldCheck size={20} /><div><strong>Online booking is being set up.</strong><p>The VPS booking API needs to be connected before appointments can be saved. Contact Tyler to book for now.</p></div></div> : success ? <div className="booking-success"><div className="success-icon"><Check size={30} /></div><p className="eyebrow">You're booked in</p><h2>See you soon, {form.name.split(' ')[0]}.</h2><p>{service?.name} · {formatDate(date)} at {timeLabel(selected)}</p><p>{whatsappConsent ? 'Tyler will send your WhatsApp reminder manually.' : 'Your booking is confirmed.'}</p><button className="button button-red" onClick={onBack}>Back to home</button></div> : <div className="booking-layout"><form className="booking-form" onSubmit={submit}>
       <label className="field-label">Choose your service<select value={serviceId} onChange={e => setServiceId(e.target.value)}>{services.map(s => <option value={s.id} key={s.id}>{s.name} — {money(s.price)} · {s.duration_minutes} min</option>)}</select></label>
       <label className="field-label">Choose a day<input type="date" min={localToday()} value={date} onChange={e => setDate(e.target.value)} required /></label>
       <div className="field-label">Available times <div className="slot-grid">{available.length ? available.map(s => <button type="button" className={selected === s.start ? 'slot selected' : 'slot'} onClick={() => setSelected(s.start)} key={s.start}>{s.label}</button>) : <p className="muted">No free times on this day. Try another date.</p>}</div></div>
       <div className="form-divider" />
       <label className="field-label">Your name<input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" autoComplete="name" /></label>
       <label className="field-label">Mobile number<input required type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="07..." autoComplete="tel" /></label>
-      <label className="consent"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /><span>Send me one appointment reminder by text message. I can opt out at any time.</span></label>
       <label className="consent"><input type="checkbox" checked={whatsappConsent} onChange={e => setWhatsappConsent(e.target.checked)} /><span>I'd like Tyler to send my appointment reminder on WhatsApp. This is optional and sent manually.</span></label>
       {message && <p className="form-message" role="alert">{message}</p>}
       <button className="button button-red submit-book" disabled={loading || !selected}>{loading ? 'Booking…' : <>Confirm booking <ArrowRight size={18} /></>}</button>
