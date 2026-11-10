@@ -4,6 +4,7 @@ import {
   ChevronRight, Clock3, Crown, Instagram, MapPin, Menu, Scissors, ShieldCheck,
   Sparkles, Star, UserRound, UsersRound, Wallet, MessageCircle, X,
 } from 'lucide-react';
+import { saveTimeOff, timeOffDates } from './lib/timeOff';
 import { formatDate } from './lib/dates';
 import { smsReminderHref } from './lib/reminders';
 import { fallbackServices, hasBackend, money, Service, supabase } from './lib/api';
@@ -308,6 +309,40 @@ function OwnerPage({ services }: { services: Service[] }) {
   const [noteForm, setNoteForm] = useState({ title: '', body: '' });
   const [blockForm, setBlockForm] = useState({ date: localToday(), start: '12:00', end: '13:00', reason: 'Walk-in / unavailable' });
   const [blocks, setBlocks] = useState<any[]>([]);
+  const [timeOffForm, setTimeOffForm] = useState({ start: localToday(), end: localToday(), reason: 'Holiday / time off' });
+  const [timeOffBlocks, setTimeOffBlocks] = useState<any[]>([]);
+  const [savingTimeOff, setSavingTimeOff] = useState(false);
+  const [timeOffProgress, setTimeOffProgress] = useState(0);
+
+  async function refreshTimeOff() {
+    if (!supabase || !authorized) return;
+    const result = await supabase.from('calendar_blocks').select('*').gte('block_date', localToday()).order('block_date').order('start_time').limit(1000);
+    if (result.error) setError(result.error.message);
+    else setTimeOffBlocks(result.data || []);
+  }
+
+  async function addTimeOff(e: FormEvent) {
+    e.preventDefault();
+    if (!supabase || savingTimeOff) return;
+    setError(''); setNotice(''); setTimeOffProgress(0); setSavingTimeOff(true);
+    try {
+      const dates = timeOffDates(timeOffForm.start, timeOffForm.end, localToday());
+      const result = await saveTimeOff(supabase, dates, timeOffForm.reason, setTimeOffProgress);
+      await Promise.all([refresh(), refreshTimeOff()]);
+      if (result.error) setError(result.error);
+      else setNotice(`${result.saved} date(s) blocked for the whole day.${result.skipped ? ` ${result.skipped} date(s) were already blocked.` : ''}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save time off.');
+    } finally { setSavingTimeOff(false); }
+  }
+
+  async function removeTimeOff(id: string) {
+    if (!supabase || savingTimeOff) return;
+    const result = await supabase.from('calendar_blocks').delete().eq('id', id);
+    if (result.error) setError(result.error.message);
+    else { setNotice('Block removed. This date is available again during your opening hours, unless another block applies.'); await Promise.all([refresh(), refreshTimeOff()]); }
+  }
+
 
   useEffect(() => {
     if (!supabase) return;
@@ -345,6 +380,8 @@ function OwnerPage({ services }: { services: Service[] }) {
   }
   useEffect(() => { refresh(); }, [authorized, week]);
   useEffect(() => { if (tab === 'reminders') refresh(); }, [tab, authorized]);
+
+  useEffect(() => { if (tab === 'timeoff') refreshTimeOff(); }, [tab, authorized]);
 
   async function signIn(e: FormEvent) {
     e.preventDefault(); setError('');
@@ -411,10 +448,10 @@ function OwnerPage({ services }: { services: Service[] }) {
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
   const shiftWeek = (amount: number) => { const d = new Date(`${week}T12:00:00`); d.setDate(d.getDate() + amount * 7); setWeek(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); };
   return <main className="owner-shell">
-    <aside className="owner-sidebar"><a className="brand owner-brand" href="#home"><span className="brand-crown"><Crown size={24} /></span><span className="brand-script">Tyler</span><span className="brand-sub">OWNER STUDIO</span></a><div className="owner-nav">{[['week', Wallet, 'This week'], ['calendar', CalendarDays, 'Calendar'], ['reminders', MessageCircle, 'Reminders'], ['settings', Clock3, 'Opening hours'], ['notes', Scissors, 'Notes'], ['reviews', Star, 'Reviews']].map(([id, Icon, label]: any) => <button className={tab === id ? 'owner-nav-item active' : 'owner-nav-item'} onClick={() => setTab(id)} key={id}><Icon size={18} />{label}</button>)}</div><button className="owner-nav-item signout" onClick={signOut}><ShieldCheck size={18} />Sign out</button></aside>
-    <section className="owner-main"><div className="owner-topline"><div><p className="eyebrow">Tyler the Barber · Owner studio</p><h1>{tab === 'week' ? 'Your week.' : tab === 'calendar' ? 'Your calendar.' : tab === 'settings' ? 'Your hours.' : tab === 'reviews' ? 'Client reviews.' : tab === 'reminders' ? 'Client reminders.' : 'Your notes.'}</h1></div><button className="button button-outline" onClick={() => { location.hash = ''; }}><ArrowRight size={16} /> View website</button></div>
+    <aside className="owner-sidebar"><a className="brand owner-brand" href="#home"><span className="brand-crown"><Crown size={24} /></span><span className="brand-script">Tyler</span><span className="brand-sub">OWNER STUDIO</span></a><div className="owner-nav">{[['week', Wallet, 'This week'], ['calendar', CalendarDays, 'Calendar'], ['timeoff', CalendarDays, 'Time off'], ['reminders', MessageCircle, 'Reminders'], ['settings', Clock3, 'Opening hours'], ['notes', Scissors, 'Notes'], ['reviews', Star, 'Reviews']].map(([id, Icon, label]: any) => <button className={tab === id ? 'owner-nav-item active' : 'owner-nav-item'} onClick={() => setTab(id)} key={id}><Icon size={18} />{label}</button>)}</div><button className="owner-nav-item signout" onClick={signOut}><ShieldCheck size={18} />Sign out</button></aside>
+    <section className="owner-main"><div className="owner-topline"><div><p className="eyebrow">Tyler the Barber · Owner studio</p><h1>{tab === 'week' ? 'Your week.' : tab === 'calendar' ? 'Your calendar.' : tab === 'timeoff' ? 'Your time off.' : tab === 'settings' ? 'Your hours.' : tab === 'reviews' ? 'Client reviews.' : tab === 'reminders' ? 'Client reminders.' : 'Your notes.'}</h1></div><button className="button button-outline" onClick={() => { location.hash = ''; }}><ArrowRight size={16} /> View website</button></div>
       {error && <div className="owner-alert error-alert">{error}<button onClick={() => setError('')}><X size={16} /></button></div>}{notice && <div className="owner-alert success-alert">{notice}<button onClick={() => setNotice('')}><X size={16} /></button></div>}
-      {tab !== 'reminders' && <div className="week-picker"><button onClick={() => shiftWeek(-1)} aria-label="Previous week"><ChevronLeft /></button><strong>{weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – {weekEnd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</strong><button onClick={() => shiftWeek(1)} aria-label="Next week"><ChevronRight /></button><input aria-label="Pick a week" type="date" value={week} onChange={e => setWeek(e.target.value)} /></div>}
+      {tab !== 'reminders' && tab !== 'timeoff' && <div className="week-picker"><button onClick={() => shiftWeek(-1)} aria-label="Previous week"><ChevronLeft /></button><strong>{weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – {weekEnd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</strong><button onClick={() => shiftWeek(1)} aria-label="Next week"><ChevronRight /></button><input aria-label="Pick a week" type="date" value={week} onChange={e => setWeek(e.target.value)} /></div>}
       {tab === 'week' && <>
         <div className="metric-grid"><Metric icon={<Wallet />} title="Made this week" value={money(totals.income)} note="Completed appointments" /><Metric icon={<UsersRound />} title="Clients this week" value={String(totals.clients)} note="Completed cuts & walk-ins" /><Metric icon={<Scissors />} title="Outgoings" value={money(totals.outgoing)} note="Logged this week" /><Metric icon={<Sparkles />} title="After outgoings" value={money(totals.net)} note="Income minus expenses" /></div>
         <div className="owner-columns"><div className="panel"><div className="panel-head"><div><h2>Appointments</h2><p>{appointments.length} bookings this week · Tap a phone number to text a reminder.</p></div></div>{appointments.length ? <div className="table-scroll"><table><thead><tr><th>When</th><th>Client</th><th>Service</th><th>Value</th><th>Status</th><th></th></tr></thead><tbody>{appointments.map(a => <tr key={a.id}><td>{formatDate(a.appointment_date)}<small>{timeLabel(a.start_time)}</small></td><td>{a.customer_name}<small><ClientPhone appointment={a} /></small></td><td>{a.services?.name || 'Service'}</td><td>{money(Number(a.amount))}</td><td><select value={a.status} onChange={e => updateBooking(a.id, { status: e.target.value })}><option value="confirmed">Booked</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="no_show">No-show</option></select></td><td><button className="mini-action" onClick={() => { const nextDate = prompt('New date (YYYY-MM-DD)', a.appointment_date); if (!nextDate) return; const nextTime = prompt('New start time (HH:MM)', a.start_time.slice(0, 5)); if (!nextTime) return; const service = services.find(s => s.id === a.service_id); updateBooking(a.id, { appointment_date: nextDate, start_time: nextTime, end_time: addMinutes(nextTime, service?.duration_minutes || 30) }); }}>Edit time</button></td></tr>)}</tbody></table></div> : <div className="empty-state">Nothing booked this week yet. Walk-ins you add will appear here too.</div>}</div>
@@ -424,6 +461,22 @@ function OwnerPage({ services }: { services: Service[] }) {
       </>}
       {tab === 'reminders' && <div className="panel reminders-panel"><div className="panel-head"><div><h2>WhatsApp reminders</h2><p>Upcoming confirmed bookings where the client opted in.</p></div><MessageCircle /></div><p className="reminder-explainer">Choose a reminder to open WhatsApp with the message ready. Check the details, then press Send in WhatsApp. Nothing is sent automatically.</p>{reminderRows.length ? <div className="reminder-list">{reminderRows.map(a => { const number = whatsappNumber(a.phone); const message = `Hi ${a.customer_name.split(' ')[0]}, just a reminder of your appointment with Tyler for ${a.services?.name || 'your service'} on ${formatDate(a.appointment_date)} at ${timeLabel(a.start_time)} at ${shopAddress}. Message me if you need to rearrange.`; const href = number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : undefined; return <article className="reminder-card" key={a.id}><div className="reminder-details"><strong>{a.customer_name}</strong><span>{a.services?.name || 'Service'} · {formatDate(a.appointment_date)} at {timeLabel(a.start_time)}</span><small><ClientPhone appointment={a} /> · WhatsApp opted in</small></div>{href ? <a className="button reminder-send" href={href} target="_blank" rel="noreferrer"><MessageCircle size={17} /> Open WhatsApp</a> : <span className="reminder-invalid">Enter a valid UK mobile to use WhatsApp</span>}</article>; })}</div> : <div className="empty-state">No upcoming confirmed bookings have opted in to WhatsApp reminders.</div>}</div>}
       {tab === 'calendar' && <div className="owner-columns"><div className="panel"><div className="panel-head"><div><h2>Booked this week</h2><p>Manage bookings, cancellations and times.</p></div></div>{appointments.length ? appointments.map(a => <div className="list-row" key={a.id}><div><strong>{formatDate(a.appointment_date)} · {timeLabel(a.start_time)}</strong><small>{a.customer_name} · {a.services?.name || 'Service'}</small><small><ClientPhone appointment={a} /></small></div><button className="mini-action" onClick={() => { const d = prompt('New date (YYYY-MM-DD)', a.appointment_date); const t = d && prompt('New start time (HH:MM)', a.start_time.slice(0, 5)); if (!d || !t) return; const svc = services.find(s => s.id === a.service_id); updateBooking(a.id, { appointment_date: d, start_time: t, end_time: addMinutes(t, svc?.duration_minutes || 30) }); }}>Change</button><button onClick={() => updateBooking(a.id, { status: 'cancelled' })}>Cancel</button></div>) : <div className="empty-state">No appointments to show.</div>}</div><div className="panel"><div className="panel-head"><div><h2>Block a time</h2><p>Remove a slot for a walk-in or time off.</p></div></div><form onSubmit={blockTime} className="stack-form"><label className="field-label">Date<input type="date" min={localToday()} required value={blockForm.date} onChange={e => setBlockForm({ ...blockForm, date: e.target.value })} /></label><div className="two-fields"><label className="field-label">From<input type="time" required value={blockForm.start} onChange={e => setBlockForm({ ...blockForm, start: e.target.value })} /></label><label className="field-label">Until<input type="time" required value={blockForm.end} onChange={e => setBlockForm({ ...blockForm, end: e.target.value })} /></label></div><label className="field-label">Reason<input value={blockForm.reason} onChange={e => setBlockForm({ ...blockForm, reason: e.target.value })} /></label><button className="button button-gold">Block time <CalendarDays size={16} /></button></form>{blocks.map(b => <div className="list-row" key={b.id}><div><strong>{formatDate(b.block_date)} · {timeLabel(b.start_time)}</strong><small>{b.reason} · until {timeLabel(b.end_time)}</small></div><button onClick={() => deleteRow('calendar_blocks', b.id)} aria-label="Remove block"><X size={15} /></button></div>)}</div></div>}
+      {tab === 'timeoff' && <div className="owner-columns">
+        <div className="panel"><div className="panel-head"><div><h2>Block days off</h2><p>Close a single date or a holiday range. Both dates are included.</p></div><CalendarDays /></div>
+          <form onSubmit={addTimeOff} className="stack-form">
+            <fieldset className="timeoff-fields" disabled={savingTimeOff}>
+              <label className="field-label">First day off<input type="date" min={localToday()} required value={timeOffForm.start} onChange={e => { const start = e.target.value; setTimeOffForm({ ...timeOffForm, start, end: timeOffForm.end < start ? start : timeOffForm.end }); }} /></label>
+              <label className="field-label">Last day off<input type="date" min={timeOffForm.start || localToday()} required value={timeOffForm.end} onChange={e => setTimeOffForm({ ...timeOffForm, end: e.target.value })} /></label>
+              <label className="field-label">Reason (private)<input maxLength={200} value={timeOffForm.reason} onChange={e => setTimeOffForm({ ...timeOffForm, reason: e.target.value })} placeholder="Holiday, appointment or day off" /></label>
+              <p className="muted">Use the same date for one day off. Customers will see no available times on blocked dates. Existing bookings must be rearranged or cancelled first.</p>
+              <button className="button button-gold" type="submit">{savingTimeOff ? `Saving… ${timeOffProgress} dates checked` : <>Block these dates <CalendarDays size={16} /></>}</button>
+            </fieldset>
+          </form>
+        </div>
+        <div className="panel"><div className="panel-head"><div><h2>Upcoming blocked dates</h2><p>Remove a block when you want to accept bookings again.</p></div><button type="button" className="mini-action" onClick={refreshTimeOff} disabled={savingTimeOff}>Refresh</button></div>
+          {timeOffBlocks.length ? timeOffBlocks.map(b => <div className="list-row" key={b.id}><div><strong>{formatDate(b.block_date)} · {b.start_time.slice(0, 5) === '00:00' && b.end_time.slice(0, 5) >= '23:59' ? 'All day' : `${timeLabel(b.start_time)} – ${timeLabel(b.end_time)}`}</strong><small>{b.reason}</small></div><button type="button" className="mini-action" disabled={savingTimeOff} onClick={() => removeTimeOff(b.id)} aria-label={`Remove block on ${formatDate(b.block_date)}`}>Remove</button></div>) : <div className="empty-state">No upcoming dates are blocked.</div>}
+        </div>
+      </div>}
       {tab === 'settings' && <div className="panel hours-panel"><div className="panel-head"><div><h2>Weekly opening hours</h2><p>Change the days and times customers can book.</p></div></div><form onSubmit={saveHours}>{dayNames.map((d, i) => <div className="hours-row" key={d}><strong>{d}</strong><label className="closed-toggle"><input type="checkbox" checked={Boolean(hours[String(i)]?.open)} onChange={e => setHours({ ...hours, [String(i)]: e.target.checked ? { open: '09:00', close: '17:00' } : { open: null, close: null } })} /> Open</label>{hours[String(i)]?.open ? <><input type="time" value={hours[String(i)].open || '09:00'} onChange={e => setHours({ ...hours, [String(i)]: { ...hours[String(i)], open: e.target.value } })} /><span>to</span><input type="time" value={hours[String(i)].close || '17:00'} onChange={e => setHours({ ...hours, [String(i)]: { ...hours[String(i)], close: e.target.value } })} /></> : <span className="muted closed-text">Closed</span>}</div>)}<button className="button button-gold">Save opening hours <Check size={17} /></button></form></div>}
       {tab === 'notes' && <div className="panel notes-panel"><div className="panel-head"><div><h2>All your notes</h2><p>Ideas, reminders and business admin in one place.</p></div></div><form onSubmit={addNote} className="stack-form note-form"><input placeholder="Note title" value={noteForm.title} onChange={e => setNoteForm({ ...noteForm, title: e.target.value })} /><textarea required placeholder="Write a note…" value={noteForm.body} onChange={e => setNoteForm({ ...noteForm, body: e.target.value })} rows={4} /><button className="button button-gold">Save note</button></form>{notes.map(n => <div className="note-row" key={n.id}><div><strong>{n.title}</strong><p>{n.body}</p><small>{new Date(n.created_at).toLocaleString('en-GB')}</small></div><button onClick={() => deleteRow('business_notes', n.id)}><X size={15} /></button></div>)}</div>}
       {tab === 'reviews' && <div className="panel notes-panel"><div className="panel-head"><div><h2>Reviews for approval</h2><p>New reviews stay private until you approve them.</p></div></div>{reviewRows.length ? reviewRows.map(r => <div className="note-row" key={r.id}><div><strong>{r.customer_name} · <span className="stars">{'★'.repeat(r.rating)}</span></strong><p>{r.body}</p><small>{r.is_published ? 'Published' : 'Waiting for approval'} · {new Date(r.created_at).toLocaleDateString('en-GB')}</small></div>{r.is_published ? <button className="mini-action" onClick={() => moderateReview(r.id, false)}>Hide</button> : <button className="mini-action" onClick={() => moderateReview(r.id, true)}>Approve</button>}<button onClick={() => deleteRow('reviews', r.id)} aria-label="Delete review"><X size={15} /></button></div>) : <div className="empty-state">No reviews yet. Customer submissions will appear here.</div>}</div>}

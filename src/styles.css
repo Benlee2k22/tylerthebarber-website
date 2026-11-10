@@ -10,3 +10,5 @@
 .booking-info{max-width:1050px;margin:-12px auto 22px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.booking-info-card{min-height:76px;padding:15px 17px;display:flex;align-items:center;gap:13px;background:#121416;border:1px solid var(--line);border-radius:10px;color:var(--gold)}.booking-info-card span{display:grid;gap:4px;flex:1}.booking-info-card strong{color:var(--white);font-size:12px}.booking-info-card small{color:#c1c1c4;font-size:11px}.booking-info-card a:hover small{text-decoration:underline}.footer p a{color:var(--gold)}.footer p{line-height:1.7}@media(max-width:760px){.booking-info{grid-template-columns:1fr;margin-top:0}.booking-info-card{min-height:68px}}
 
 .client-phone{color:var(--gold);text-decoration:underline;text-underline-offset:3px}.client-phone:hover{color:#e4bd70}
+
+.timeoff-fields{border:0;padding:0;margin:0;min-width:0;display:grid;gap:18px}.timeoff-fields .muted{font-size:13px;line-height:1.6;margin:0}.timeoff-fields:disabled{opacity:.7}
