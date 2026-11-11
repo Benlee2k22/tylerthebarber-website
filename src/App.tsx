@@ -43,7 +43,7 @@ function addMinutes(time: string, minutes: number) {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 function timeLabel(time: string) {
-  return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' });
+  return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 function whatsappNumber(value: string) {
   const compact = value.replace(/[\s().-]/g, '');
