@@ -12,3 +12,7 @@
 .client-phone{color:var(--gold);text-decoration:underline;text-underline-offset:3px}.client-phone:hover{color:#e4bd70}
 
 .timeoff-fields{border:0;padding:0;margin:0;min-width:0;display:grid;gap:18px}.timeoff-fields .muted{font-size:13px;line-height:1.6;margin:0}.timeoff-fields:disabled{opacity:.7}
+
+.appointment-actions{display:flex;gap:8px;flex-wrap:wrap}.danger-action{color:#ff8585!important;border-color:rgba(255,100,100,.3)!important}.danger-button{background:#a93232!important;color:#fff!important;border:1px solid #d45a5a!important}
+.dialog-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.78);backdrop-filter:blur(7px);display:grid;place-items:center;padding:20px}.appointment-dialog{position:relative;width:min(100%,480px);padding:32px;background:#121212;border:1px solid rgba(201,164,92,.35);border-radius:18px;box-shadow:0 24px 80px #000;max-height:calc(100vh - 40px);overflow:auto}.appointment-dialog h2{font-family:inherit;font-size:26px;margin:8px 0}.dialog-client{color:#d2c7b1;margin:0 0 22px}.dialog-hint{font-size:14px;line-height:1.6;color:#aaa;margin:0}.dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}.dialog-close{position:absolute;right:15px;top:15px;border:0;background:transparent;color:#ddd;cursor:pointer;padding:7px}.appointment-dialog .field-label input,.appointment-dialog .field-label select{width:100%}
+@media(max-width:560px){.appointment-dialog{padding:26px 20px}.dialog-actions{flex-direction:column-reverse}.dialog-actions .button{width:100%;justify-content:center}}
