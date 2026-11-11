@@ -45,20 +45,6 @@ function addMinutes(time: string, minutes: number) {
 function timeLabel(time: string) {
   return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
-function parseTimeInput(value: string) {
-  const input = value.trim().toLowerCase();
-  const twelveHour = /^(\d{1,2})(?::([0-5]\d))?\s*(am|pm)$/.exec(input);
-  if (twelveHour) {
-    const hour = Number(twelveHour[1]);
-    if (hour < 1 || hour > 12) return null;
-    const converted = (hour % 12) + (twelveHour[3] === 'pm' ? 12 : 0);
-    return `${String(converted).padStart(2, '0')}:${twelveHour[2] || '00'}`;
-  }
-  const twentyFourHour = /^(?:[01]?\d|2[0-3]):[0-5]\d$/.exec(input);
-  if (!twentyFourHour) return null;
-  const [hour, minute] = input.split(':');
-  return `${String(Number(hour)).padStart(2, '0')}:${minute}`;
-}
 function TimeSelect({ value, onChange, ariaLabel }: { value: string; onChange: (value: string) => void; ariaLabel: string }) {
   const options = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i * 15 / 60)).padStart(2, '0')}:${String(i * 15 % 60).padStart(2, '0')}`);
   const current = value.slice(0, 5);
