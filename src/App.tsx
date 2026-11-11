@@ -52,6 +52,36 @@ function TimeSelect({ value, onChange, ariaLabel }: { value: string; onChange: (
   options.sort();
   return <select aria-label={ariaLabel} value={current} onChange={e => onChange(e.target.value)}>{options.map(time => <option value={time} key={time}>{timeLabel(time)}</option>)}</select>;
 }
+function DatePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const selected = value ? new Date(`${value}T12:00:00`) : new Date();
+  const [month, setMonth] = useState(new Date(selected.getFullYear(), selected.getMonth(), 1));
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (value) setMonth(new Date(selected.getFullYear(), selected.getMonth(), 1));
+  }, [value]);
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const gridStart = new Date(first);
+  gridStart.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+  const days = Array.from({ length: 42 }, (_, i) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + i);
+    return date;
+  });
+  return <div className="custom-date-picker">
+    <button type="button" className="date-picker-trigger" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <CalendarDays size={17} /> {value ? selected.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }) : 'Choose a date'} <ChevronDown size={16} />
+    </button>
+    {open && <div className="date-picker-popover" role="dialog" aria-label="Choose appointment date">
+      <div className="date-picker-head"><button type="button" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ChevronLeft size={18} /></button><strong>{month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</strong><button type="button" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><ChevronRight size={18} /></button></div>
+      <div className="date-picker-grid date-picker-weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day => <span key={day}>{day}</span>)}</div>
+      <div className="date-picker-grid">{days.map(day => {
+        const dateValue = localDateValue(day);
+        const sameMonth = day.getMonth() === month.getMonth();
+        return <button type="button" key={dateValue} className={`date-picker-day ${sameMonth ? '' : 'outside-month'} ${dateValue === value ? 'selected' : ''}`} aria-pressed={dateValue === value} onClick={() => { onChange(dateValue); setOpen(false); }}>{day.getDate()}</button>;
+      })}</div>
+    </div>}
+  </div>;
+}
 function whatsappNumber(value: string) {
   const compact = value.replace(/[\s().-]/g, '');
   if (/^07\d{9}$/.test(compact)) return '44' + compact.slice(1);
@@ -522,7 +552,7 @@ function OwnerPage({ services }: { services: Service[] }) {
           <p className="eyebrow">Manage appointment</p><h2 id="appointment-dialog-title">Change date &amp; time</h2>
           <p className="dialog-client">{appointmentDialog.booking.customer_name} · {appointmentDialog.booking.services?.name || 'Appointment'}</p>
           <form className="stack-form" onSubmit={saveAppointmentEdit}>
-            <label className="field-label">Date<input type="date" required value={editDate} onChange={e => setEditDate(e.target.value)} /></label>
+            <label className="field-label">Date<DatePicker value={editDate} onChange={setEditDate} /></label>
             <label className="field-label">Start time<TimeSelect ariaLabel="Appointment start time" value={editTime} onChange={setEditTime} /></label>
             <p className="dialog-hint">Appointment length stays at {services.find(s => s.id === appointmentDialog.booking.service_id)?.duration_minutes || 60} minutes.</p>
             {error && <p className="form-message">{error}</p>}
